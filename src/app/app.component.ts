@@ -101,23 +101,35 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   playAttentionSound() {
-    // Quick 8-bit arpeggio
+    // A classic retro 8-bit jingle
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     const audioCtx = new AudioContext();
-    const notes = [440, 554, 659, 880];
+    
+    const jingle = [
+      { freq: 392.00, dur: 0.1 }, // G4
+      { freq: 523.25, dur: 0.1 }, // C5
+      { freq: 659.25, dur: 0.1 }, // E5
+      { freq: 783.99, dur: 0.2 }, // G5
+      { freq: 1046.50, dur: 0.4 } // C6
+    ];
+    
     let time = audioCtx.currentTime;
     
-    notes.forEach(freq => {
+    jingle.forEach(note => {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'square';
-      osc.frequency.value = freq;
-      gain.gain.value = 0.1;
+      osc.frequency.value = note.freq;
+      
+      // Add a slight volume envelope for the jingle to sound better
+      gain.gain.setValueAtTime(0.1, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + note.dur - 0.02);
+      
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start(time);
-      osc.stop(time + 0.1);
-      time += 0.1;
+      osc.stop(time + note.dur);
+      time += note.dur;
     });
   }
 
