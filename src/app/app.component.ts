@@ -28,6 +28,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   private idleTimeout: any;
   private attentionInterval: any;
+  private qrRefreshTimeout: any;
+  private audioCtx: AudioContext | null = null;
 
   // i18n dictionary
   private dict: Record<string, Record<'de' | 'en', string>> = {
@@ -102,8 +104,12 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   playAttentionSound() {
     // A classic retro 8-bit jingle
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    const audioCtx = new AudioContext();
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!this.audioCtx) this.audioCtx = new AudioContextClass();
+    
+    if (this.audioCtx?.state === 'suspended') {
+      this.audioCtx.resume();
+    }
     
     const jingle = [
       { freq: 392.00, dur: 0.1 }, // G4
@@ -113,20 +119,19 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       { freq: 1046.50, dur: 0.4 } // C6
     ];
     
-    let time = audioCtx.currentTime;
+    let time = this.audioCtx!.currentTime;
     
     jingle.forEach(note => {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
+      const osc = this.audioCtx!.createOscillator();
+      const gain = this.audioCtx!.createGain();
       osc.type = 'square';
       osc.frequency.value = note.freq;
       
-      // Add a slight volume envelope for the jingle to sound better
-      gain.gain.setValueAtTime(0.1, time);
-      gain.gain.exponentialRampToValueAtTime(0.01, time + note.dur - 0.02);
+      // Simple volume instead of complex envelope to avoid WebAudio silent failures
+      gain.gain.value = 0.1;
       
       osc.connect(gain);
-      gain.connect(audioCtx.destination);
+      gain.connect(this.audioCtx!.destination);
       osc.start(time);
       osc.stop(time + note.dur);
       time += note.dur;
@@ -136,6 +141,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy() {
     clearTimeout(this.idleTimeout);
     clearInterval(this.attentionInterval);
+    if (this.qrRefreshTimeout) clearTimeout(this.qrRefreshTimeout);
   }
 
   ngAfterViewInit() {
@@ -241,33 +247,33 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   async playTones() {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    const audioCtx = new AudioContext();
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!this.audioCtx) this.audioCtx = new AudioContextClass();
 
-    if (audioCtx.state === 'suspended') {
-      await audioCtx.resume();
+    if (this.audioCtx?.state === 'suspended') {
+      await this.audioCtx.resume();
     }
 
-    let startTime = audioCtx.currentTime;
+    let startTime = this.audioCtx!.currentTime;
 
     this.steps.forEach(step => {
       const durationSec = step.duration / 1000;
 
       step.voices.forEach(voice => {
         if (!voice.enabled) return;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+        const osc = this.audioCtx!.createOscillator();
+        const gain = this.audioCtx!.createGain();
         osc.type = 'square';
         osc.frequency.value = voice.frequency;
         gain.gain.value = Math.max(0.01, 1 - (voice.volume / 30));
         osc.connect(gain);
-        gain.connect(audioCtx.destination);
+        gain.connect(this.audioCtx!.destination);
         osc.start(startTime);
         osc.stop(startTime + durationSec);
       });
 
       if (step.noise.enabled) {
-        this.playNoise(audioCtx, startTime, durationSec, step.noise.volume);
+        this.playNoise(this.audioCtx!, startTime, durationSec, step.noise.volume);
       }
 
       startTime += durationSec;
@@ -313,11 +319,20 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       console.log(targetUrl);
       console.log('---------------------');
       
-      this.qrCodeDataUrl = await QRCode.toDataURL(targetUrl, {
-        width: 300,
-        margin: 2,
-        color: { dark: '#000000', light: '#ffffff' }
-      });
+      QRCode.toDataURL(targetUrl, { width: 300, margin: 2 })
+        .then(url => {
+          this.qrCodeDataUrl = url;
+          
+          // Refresh page after 2 minutes when QR is shown
+          if (this.qrRefreshTimeout) clearTimeout(this.qrRefreshTimeout);
+          this.qrRefreshTimeout = setTimeout(() => {
+            window.location.reload();
+          }, 120000); // 2 minutes
+        })
+        .catch(err => {
+          console.error(err);
+          alert('Failed to generate QR Code');
+        });
     } catch (err) {
       console.error(err);
       alert('Failed to generate QR Code');
