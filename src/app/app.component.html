@@ -1,0 +1,106 @@
+<!-- OVERLAYS -->
+<div *ngIf="attentionMode" class="attention-overlay" (click)="resetIdleTimer()">
+  <h1 class="blink">{{ t('attention_msg') }}</h1>
+  <p style="font-size: 14px;">(Click anywhere to wake up)</p>
+</div>
+
+<!-- HEADER / LANG TOGGLE -->
+<div style="display: flex; justify-content: flex-end; padding-bottom: 10px;">
+  <button (click)="toggleLang()" style="border-radius: 0; font-size: 10px;">
+    {{ lang === 'de' ? 'EN' : 'DE' }}
+  </button>
+</div>
+
+<!-- ONBOARDING: INTRO CHIPS -->
+<div *ngIf="currentView === 'introChips'" class="panel onboarding">
+  <h1>{{ t('info_chips_title') }}</h1>
+  <p>{{ t('info_chips_text') }}</p>
+  <div style="text-align: right; margin-top: 30px;">
+    <button class="primary" (click)="nextView('introWaves')">{{ t('btn_next') }} ></button>
+  </div>
+</div>
+
+<!-- ONBOARDING: INTRO WAVES -->
+<div *ngIf="currentView === 'introWaves'" class="panel onboarding">
+  <h1>{{ t('info_waves_title') }}</h1>
+  <p>{{ t('info_waves_text') }}</p>
+  <div style="text-align: right; margin-top: 30px;">
+    <button class="primary" (click)="nextView('modeler')">{{ t('btn_start') }}</button>
+  </div>
+</div>
+
+<!-- MAIN MODELER APP -->
+<div *ngIf="currentView === 'modeler'">
+  <div class="panel">
+    <h1>{{ t('title') }}</h1>
+
+    <div class="controls">
+      <button (click)="playTones()">{{ t('btn_play') }}</button>
+      <button (click)="addStep()" *ngIf="steps.length < maxSteps">{{ t('btn_add') }}</button>
+      <button (click)="generateQRCode()" class="primary">{{ t('btn_gen') }}</button>
+    </div>
+  </div>
+
+  <div *ngIf="qrCodeDataUrl" class="panel qr-panel">
+    <h2>{{ t('scan_msg') }}</h2>
+    <img [src]="qrCodeDataUrl" alt="QR Code" />
+  </div>
+
+  <div id="tones">
+    <div *ngFor="let step of steps; let stepIndex = index" class="step-card panel">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>{{ t('step') }} {{ stepIndex + 1 }}</h3>
+        <button (click)="removeStep(stepIndex)" style="border-color: red; color: red;">X</button>
+      </div>
+
+      <div>
+        <label>{{ t('duration') }}: </label>
+        <input type="number" [(ngModel)]="step.duration" (change)="onStepChange()" min="1" max="5000">
+      </div>
+
+      <div style="margin-top: 15px;">
+        <h4>{{ t('channels') }}</h4>
+        <div *ngFor="let voice of step.voices; let voiceIndex = index" style="margin-bottom: 5px;">
+          <label>
+            <input type="checkbox" [(ngModel)]="voice.enabled" (change)="onStepChange()">
+            CH {{ voiceIndex + 1 }}
+          </label>
+
+          <span style="margin-left: 10px;">{{ t('freq') }}</span>
+          <input type="number" [(ngModel)]="voice.frequency" (change)="onStepChange()" min="110" max="44733">
+
+          <span style="margin-left: 10px;">{{ t('vol') }}</span>
+          <input type="number" [(ngModel)]="voice.volume" (change)="onStepChange()" min="0" max="30">
+        </div>
+      </div>
+
+      <div style="margin-top: 15px;">
+        <h4>{{ t('noise') }}</h4>
+        <label>
+          <input type="checkbox" [(ngModel)]="step.noise.enabled" (change)="onStepChange()">
+          {{ t('active') }}
+        </label>
+
+        <span style="margin-left: 10px;">{{ t('type') }}</span>
+        <select [(ngModel)]="step.noise.type" (change)="onStepChange()">
+          <option [ngValue]="-1">NOISE -1</option>
+          <option [ngValue]="-2">NOISE -2</option>
+          <option [ngValue]="-3">NOISE -3</option>
+          <option [ngValue]="-4">NOISE -4</option>
+          <option [ngValue]="-5">NOISE -5</option>
+          <option [ngValue]="-6">NOISE -6</option>
+          <option [ngValue]="-7">NOISE -7</option>
+          <option [ngValue]="-8">NOISE -8</option>
+        </select>
+
+        <span style="margin-left: 10px;">VOL:</span>
+        <input type="number" [(ngModel)]="step.noise.volume" (change)="onStepChange()" min="0" max="30">
+      </div>
+
+      <div style="margin-top: 15px;">
+        <h4>{{ t('waveform') }}</h4>
+        <canvas #waveCanvas class="wave-canvas" width="600" height="100"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
